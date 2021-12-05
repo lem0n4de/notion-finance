@@ -13,5 +13,5 @@ public class User
     public string Email { get; set; }
     [Required]
     public string PasswordHash { get; set; }
-    public string PasswordSalt { get; set; }
+    public byte[] PasswordSalt { get; set; }
 }
