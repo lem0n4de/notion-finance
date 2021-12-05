@@ -1,6 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using NotionFinance.Data;
 using NotionFinance.Helpers;
 using NotionFinance.Models;
@@ -13,10 +17,12 @@ namespace NotionFinance.Controllers;
 public class UserController : ControllerBase
 {
     private readonly UserDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public UserController(UserDbContext context)
+    public UserController(UserDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     // GET: api/User
@@ -81,9 +87,10 @@ public class UserController : ControllerBase
     // POST: api/User
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [AllowAnonymous]
-    [HttpPost]
+    [HttpPost("register")]
     public async Task<ActionResult<User>> Register(RegisterUserForm userForm)
     {
+        if (userForm == null) return BadRequest();
         var (hash, salt) = PasswordHelper.EncryptPassword(userForm.Password);
         var user = new User()
         {
@@ -97,7 +104,29 @@ public class UserController : ControllerBase
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction("GetUser", new {id = user.Id}, user);
+        return CreatedAtAction(nameof(GetUser), new {id = user.Id}, user);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("authenticate")]
+    public async Task<ActionResult<object>> Authenticate(string email, string password)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(x => x.Email == email);
+
+        if (user == null) return BadRequest();
+        var checkPassword = PasswordHelper.CheckPassword(user, password);
+
+        if (checkPassword)
+        {
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(_configuration["Jwt:Issuer"], null, null,
+                expires: DateTime.Now.AddDays(7), signingCredentials: credentials);
+
+            return Ok(new {token = new JwtSecurityTokenHandler().WriteToken(token), expires = token.ValidTo});
+        }
+        else return BadRequest();
     }
 
     // DELETE: api/User/5
