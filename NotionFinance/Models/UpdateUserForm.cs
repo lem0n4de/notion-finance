@@ -1,13 +1,10 @@
-﻿using Microsoft.Build.Framework;
+﻿namespace NotionFinance.Models;
 
-namespace NotionFinance.Models;
-
-public class RegisterUserForm
+public class UpdateUserForm
 {
+    public long Id { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
-    [Required]
     public string Email { get; set; }
-    [Required]
     public string Password { get; set; }
 }

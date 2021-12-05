@@ -21,14 +21,16 @@ public class UserController : ControllerBase
 
     // GET: api/User
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+    public async Task<ActionResult<IEnumerable<UserDTO>>> GetUsers()
     {
-        return await _context.Users.ToListAsync();
+        var users = await _context.Users.ToListAsync();
+        var userDtos = users.Select(UserDTO.FromUser).ToList();
+        return userDtos;
     }
 
     // GET: api/User/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<User>> GetUser(long id)
+    public async Task<ActionResult<UserDTO>> GetUser(long id)
     {
         var user = await _context.Users.FindAsync(id);
 
@@ -37,18 +39,23 @@ public class UserController : ControllerBase
             return NotFound();
         }
 
-        return user;
+        return UserDTO.FromUser(user);
     }
 
     // PUT: api/User/5
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutUser(long id, User user)
+    public async Task<IActionResult> PutUser(long id, UpdateUserForm updateUserForm)
     {
-        if (id != user.Id)
+        if (id != updateUserForm.Id)
         {
             return BadRequest();
         }
+
+        var user = await _context.Users.FirstAsync(x => x.Id == updateUserForm.Id);
+        user.FirstName = updateUserForm.FirstName;
+        user.LastName = updateUserForm.LastName;
+        user.Email = updateUserForm.Email;
 
         _context.Entry(user).State = EntityState.Modified;
 
@@ -86,7 +93,7 @@ public class UserController : ControllerBase
             PasswordHash = hash,
             PasswordSalt = salt
         };
-        
+
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
