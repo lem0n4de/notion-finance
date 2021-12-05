@@ -81,7 +81,6 @@ public class UserController : ControllerBase
         var user = new User()
         {
             Email = userForm.Email,
-            Username = userForm.Username,
             FirstName = userForm.FirstName,
             LastName = userForm.LastName,
             PasswordHash = hash,
