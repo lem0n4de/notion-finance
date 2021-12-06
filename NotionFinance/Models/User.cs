@@ -12,4 +12,7 @@ public class User
     [Required]
     public string PasswordHash { get; set; }
     public byte[] PasswordSalt { get; set; }
+    
+    public List<Account> Accounts { get; set; }
+    public List<Roles> Roles { get; set; }
 }
