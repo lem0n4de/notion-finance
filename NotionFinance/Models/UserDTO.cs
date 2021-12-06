@@ -7,7 +7,7 @@ public class UserDTO
     public string? LastName { get; set; }
     public string Email { get; set; }
     public List<Account> Accounts { get; set; }
-    public List<Roles> Roles { get; set; }
+    public Membership Membership { get; set; }
 
     public static UserDTO FromUser(User user)
     {
@@ -18,7 +18,7 @@ public class UserDTO
             FirstName = user.FirstName,
             LastName = user.LastName,
             Accounts = user.Accounts,
-            Roles = user.Roles
+            Membership = user.Membership
         };
     }
 }

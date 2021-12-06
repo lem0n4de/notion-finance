@@ -88,7 +88,7 @@ public class UserController : ControllerBase
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<ActionResult<User>> Register(RegisterUserForm userForm)
+    public async Task<ActionResult<UserDTO>> Register(RegisterUserForm userForm)
     {
         if (userForm == null) return BadRequest();
         var (hash, salt) = PasswordHelper.EncryptPassword(userForm.Password);
@@ -97,10 +97,10 @@ public class UserController : ControllerBase
             Email = userForm.Email,
             FirstName = userForm.FirstName,
             LastName = userForm.LastName,
+            Membership = userForm.Membership,
             PasswordHash = hash,
             PasswordSalt = salt
         };
-        user.Roles.Add(Roles.Level1Member);
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();

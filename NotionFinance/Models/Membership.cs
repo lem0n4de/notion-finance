@@ -1,8 +1,7 @@
 ﻿namespace NotionFinance.Models;
 
-public enum Roles
+public enum Membership
 {
-    Admin = 0,
     Level1Member = 1,
     Level2Member = 2,
     Level3Member = 3
