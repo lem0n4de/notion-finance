@@ -100,6 +100,7 @@ public class UserController : ControllerBase
             PasswordHash = hash,
             PasswordSalt = salt
         };
+        user.Roles.Add(Roles.Level1Member);
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
