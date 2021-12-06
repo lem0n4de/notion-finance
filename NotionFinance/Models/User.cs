@@ -14,5 +14,6 @@ public class User
     public byte[] PasswordSalt { get; set; }
     
     public List<Account> Accounts { get; set; }
-    public Membership Membership { get; set; } = new();
+    public Membership Membership { get; set; }
+    public bool IsAdmin { get; set; }
 }

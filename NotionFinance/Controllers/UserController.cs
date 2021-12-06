@@ -98,6 +98,7 @@ public class UserController : ControllerBase
             FirstName = userForm.FirstName,
             LastName = userForm.LastName,
             Membership = userForm.Membership,
+            IsAdmin = false,
             PasswordHash = hash,
             PasswordSalt = salt
         };

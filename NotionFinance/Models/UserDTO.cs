@@ -8,6 +8,7 @@ public class UserDTO
     public string Email { get; set; }
     public List<Account> Accounts { get; set; }
     public Membership Membership { get; set; }
+    public bool IsAdmin { get; set; }
 
     public static UserDTO FromUser(User user)
     {
@@ -18,7 +19,8 @@ public class UserDTO
             FirstName = user.FirstName,
             LastName = user.LastName,
             Accounts = user.Accounts,
-            Membership = user.Membership
+            Membership = user.Membership,
+            IsAdmin = user.IsAdmin
         };
     }
 }
