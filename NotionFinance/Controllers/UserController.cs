@@ -58,7 +58,7 @@ public class UserController : ControllerBase
     {
         if (id != updateUserForm.Id)
         {
-            return BadRequest();
+            return BadRequest(Messages.InvalidUser);
         }
 
         var user = await _context.Users.FirstAsync(x => x.Id == updateUserForm.Id);
@@ -94,6 +94,7 @@ public class UserController : ControllerBase
     public async Task<ActionResult<UserDTO>> Register(RegisterUserForm userForm)
     {
         if (userForm == null) return BadRequest();
+        if (await _context.Users.AnyAsync(x => x.Email == userForm.Email)) return BadRequest(Messages.UserWithEmailExists);
         var (hash, salt) = PasswordHelper.EncryptPassword(userForm.Password);
         var user = new User()
         {
@@ -118,7 +119,7 @@ public class UserController : ControllerBase
     {
         var user = await _context.Users.FirstOrDefaultAsync(x => x.Email == email);
 
-        if (user == null) return BadRequest();
+        if (user == null) return BadRequest(Messages.InvalidUser);
         var checkPassword = PasswordHelper.CheckPassword(user, password);
 
         if (checkPassword)
@@ -140,7 +141,7 @@ public class UserController : ControllerBase
 
             return Ok(new {token = new JwtSecurityTokenHandler().WriteToken(token), expires = token.ValidTo});
         }
-        else return BadRequest();
+        return BadRequest(Messages.PasswordIncorrect);
     }
 
     // DELETE: api/User/5
