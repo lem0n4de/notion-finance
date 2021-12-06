@@ -16,4 +16,8 @@ public class User
     public List<Account> Accounts { get; set; }
     public Membership Membership { get; set; }
     public bool IsAdmin { get; set; }
+    
+    public string? NotionId { get; set; }
+    public string AuthorizedWorkspaceId { get; set; }
+    public string? NotionAccessToken { get; set; }
 }
