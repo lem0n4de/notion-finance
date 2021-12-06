@@ -27,6 +27,7 @@ public class UserController : ControllerBase
 
     // GET: api/User
     [HttpGet]
+    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<IEnumerable<UserDTO>>> GetUsers()
     {
         var users = await _context.Users.ToListAsync();
@@ -36,6 +37,7 @@ public class UserController : ControllerBase
 
     // GET: api/User/5
     [HttpGet("{id}")]
+    [Authorize]
     public async Task<ActionResult<UserDTO>> GetUser(long id)
     {
         var user = await _context.Users.FindAsync(id);
@@ -51,6 +53,7 @@ public class UserController : ControllerBase
     // PUT: api/User/5
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [HttpPut("{id}")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> PutUser(long id, UpdateUserForm updateUserForm)
     {
         if (id != updateUserForm.Id)
@@ -106,7 +109,7 @@ public class UserController : ControllerBase
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetUser), new {id = user.Id}, user);
+        return CreatedAtAction(nameof(GetUser), new {id = user.Id}, UserDTO.FromUser(user));
     }
 
     [AllowAnonymous]
@@ -123,7 +126,16 @@ public class UserController : ControllerBase
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-            var token = new JwtSecurityToken(_configuration["Jwt:Issuer"], null, null,
+            var role = user.IsAdmin ? "Administrator" : "User";
+            
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, role),
+                new Claim(ClaimTypes.Role, user.Membership.ToString())
+            };
+
+            var token = new JwtSecurityToken(_configuration["Jwt:Issuer"], null, claims,
                 expires: DateTime.Now.AddDays(7), signingCredentials: credentials);
 
             return Ok(new {token = new JwtSecurityTokenHandler().WriteToken(token), expires = token.ValidTo});
@@ -133,6 +145,7 @@ public class UserController : ControllerBase
 
     // DELETE: api/User/5
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> DeleteUser(long id)
     {
         var user = await _context.Users.FindAsync(id);
