@@ -40,7 +40,7 @@ public class NotionAuthorizationController : Controller
         // state is inside double brackets because notion thinks its a number and not a string.
         var url =
             $"{NotionOAuthUrl}?owner=user&response_type=code&client_id={_configuration["Notion:ClientId"]}" +
-            "&redirect_uri=https://localhost:7047/api/notion/callback&state=\"{user.Id}\"";
+            $"&redirect_uri=https://localhost:7047/api/notion/callback&state=\"{user.Id}\"";
         return url;
     }
 

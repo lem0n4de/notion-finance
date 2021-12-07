@@ -62,12 +62,9 @@ public class NotionService : INotionService
 
     public async Task<IEnumerable<Page>> GetPagesAsync()
     {
-        var res = await _client.Search.SearchAsync(new SearchParameters()
+        var res = await _client.Search.SearchAsync(new SearchParameters
         {
-            Filter = new SearchFilter()
-            {
-                Value = SearchObjectType.Page
-            }
+            Filter = new SearchFilter() {Value = SearchObjectType.Page}
         });
 
         foreach (var page in res.Results.Cast<Page>())
@@ -96,7 +93,7 @@ public class NotionService : INotionService
         return pagesOfDatabase;
     }
 
-    public async Task UpdatePage(Page page, PagesUpdateParameters pagesUpdateParameters)
+    public async Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters)
     {
         await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters);
     }

@@ -13,6 +13,6 @@ public interface INotionService
     public Task<IEnumerable<Page>> GetPagesAsync();
     public Task<Page> GetPagesByIdAsync(string pageId);
     public Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId);
-    public Task UpdatePage(Page page, PagesUpdateParameters pagesUpdateParameters);
+    public Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters);
     public Task UpdateDatabasesAndPagesAsync();
 }
