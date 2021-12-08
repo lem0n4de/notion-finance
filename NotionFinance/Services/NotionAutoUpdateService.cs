@@ -86,8 +86,7 @@ public class NotionAutoUpdateService : BackgroundService
                         try
                         {
                             // TODO Change this to use cryptocurrency name also
-                            j = coins.First(x =>
-                                x.Symbol == ticker.ToLower() && (name.ToLower().Contains(x.Name!.ToLower())));
+                            j = coins.First(x => x.Symbol == ticker.ToLower());
                         }
                         catch (InvalidOperationException e)
                         {
