@@ -15,7 +15,7 @@ using NotionFinance.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// builder.Services.AddHttpClient();
+builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseSqlite($"Data Source={builder.Configuration["Sqlite:Users"]}"));

@@ -4,14 +4,28 @@ using NotionFinance.Models;
 
 namespace NotionFinance.Services;
 
-public class CoinGeckoService: ICryptocurrencyService
+public class CoinGeckoService : ICryptocurrencyService
 {
     private HttpClient _httpClient;
+    private List<Cryptocurrency> _cryptocurrencies { get; set; }
 
-    public CoinGeckoService()
+    public CoinGeckoService(HttpClient httpClient)
     {
-        _httpClient = new HttpClient();
+        _httpClient = httpClient;
+        _cryptocurrencies = new List<Cryptocurrency>();
     }
+
+    public async Task<IEnumerable<Cryptocurrency>> GetAllSupportedCryptocurrenciesAsync(bool forceRefresh = false)
+    {
+        if (_cryptocurrencies.Any() && !forceRefresh) return _cryptocurrencies;
+        var result = await _httpClient.GetStringAsync(
+            "https://api.coingecko.com/api/v3/coins/list");
+        var r = JsonSerializer.Deserialize<IEnumerable<Cryptocurrency>>(result);
+        if (r == null) throw new CoinGeckoServiceError();
+        _cryptocurrencies = r.ToList();
+        return _cryptocurrencies;
+    }
+
     public async Task<IEnumerable<Cryptocurrency>> GetTopCryptocurrenciesAsync()
     {
         var result = await _httpClient.GetStringAsync(

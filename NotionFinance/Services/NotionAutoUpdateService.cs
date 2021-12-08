@@ -26,10 +26,9 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            foreach (var user in await userDbContext.Users.ToListAsync(stoppingToken))
+            foreach (var user in await userDbContext.Users.Where(x => x.NotionAccessToken != null).ToListAsync(stoppingToken))
             {
                 _logger.LogInformation("Starting update process for user {UserId}", user.Id);
-                if (user.NotionAccessToken == null) continue;
                 var notionService = new NotionService(userDbContext,
                     NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken}));
                 Database masterDb;
@@ -63,7 +62,7 @@ public class NotionAutoUpdateService : BackgroundService
                     }
                 }
 
-                var coins = (await cryptocurrencyService.GetTopCryptocurrenciesAsync()).ToList();
+                var coins = (await cryptocurrencyService.GetAllSupportedCryptocurrenciesAsync()).ToList();
                 foreach (var page in tokenPages)
                 {
                     try
@@ -124,7 +123,8 @@ public class NotionAutoUpdateService : BackgroundService
                 }
 
             }
-            Thread.Sleep(5000);
+
+            await Task.Delay(5_000);
         }
     }
 
