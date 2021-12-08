@@ -1,6 +1,7 @@
 ﻿using Notion.Client;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
+using NotionFinance.Models.Tables;
 using User = NotionFinance.Models.User;
 
 namespace NotionFinance.Services;
@@ -102,5 +103,13 @@ public class NotionService : INotionService
     {
         await GetDatabasesAsync();
         await GetPagesAsync();
+    }
+
+    public async Task<MasterTable> GetMasterTable()
+    {
+        if (_databases.Any()) await GetDatabasesAsync();
+        var masterDb = _databases.Find(database => database.Title[0].PlainText == "Master Database");
+        if (masterDb == null) throw new NotionDatabaseNotFoundException();
+        return await MasterTable.Create(masterDb);
     }
 }

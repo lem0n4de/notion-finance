@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Diagnostics.CodeAnalysis;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notion.Client;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Models;
+using NotionFinance.Models.Tables;
+using Serilog;
 using User = NotionFinance.Models.User;
 
 namespace NotionFinance.Services;
@@ -26,17 +29,18 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            foreach (var user in await userDbContext.Users.Where(x => x.NotionAccessToken != null).ToListAsync(stoppingToken))
+            foreach (var user in await userDbContext.Users.Where(x => x.NotionAccessToken != null)
+                         .ToListAsync(stoppingToken))
             {
                 _logger.LogInformation("Starting update process for user {UserId}", user.Id);
                 var notionService = new NotionService(userDbContext,
                     NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken}));
-                Database masterDb;
-                IEnumerable<Page> masterDbPages;
+                MasterTable masterTable;
                 try
                 {
-                    masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
-                    masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
+                    var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
+                    var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
+                    masterTable = await MasterTable.Create(masterDb, masterDbPages);
                     _logger.LogInformation("Master Database found for User {Id}", user.Id);
                 }
                 catch (NotionDatabaseNotFoundException e)
@@ -45,90 +49,52 @@ public class NotionAutoUpdateService : BackgroundService
                     continue;
                 }
 
-                var tokenPages = new List<Page>();
-                foreach (var page in masterDbPages)
-                {
-                    try
-                    {
-                        var typePropertyValue = page.Properties.First(x => x.Key == "Type").Value;
-                        if (typePropertyValue == null) continue;
-                        var selectName = (typePropertyValue as SelectPropertyValue)!.Select.Name;
-                        if (selectName == "Token") tokenPages.Add(page);
-                    }
-                    catch (Exception e)
-                    {
-                        // ignored
-                        _logger.LogInformation("Couldn't get TYPE column from master database");
-                    }
-                }
-
-                var coins = (await cryptocurrencyService.GetAllSupportedCryptocurrenciesAsync()).ToList();
-                foreach (var page in tokenPages)
-                {
-                    try
-                    {
-                        var tickerPropertyValue = page.Properties.First(x => x.Key == "Ticker").Value;
-                        if (tickerPropertyValue == null)
-                        {
-                            continue;
-                        }
-
-                        var ticker = (tickerPropertyValue as RichTextPropertyValue)!.RichText[0].PlainText;
-
-                        var namePropertyValue = page.Properties.First(x => x.Key == "Name").Value;
-                        if (namePropertyValue == null)
-                        {
-                            continue;
-                        }
-
-                        var name = (namePropertyValue as TitlePropertyValue)!.Title[0].PlainText;
-                        Cryptocurrency j;
-                        try
-                        {
-                            // TODO Change this to use cryptocurrency name also
-                            j = coins.First(x => x.Symbol == ticker.ToLower());
-                        }
-                        catch (InvalidOperationException e)
-                        {
-                            continue;
-                        }
-
-                        var k = await cryptocurrencyService.GetCryptocurrencyDetailsAsync(j);
-                        // TODO If error: change ticker value to Error Code with current ticker itself
-                        var currentPricePropertyValue = page.Properties.First(x => x.Key == "Current Price").Value;
-                        if (currentPricePropertyValue == null)
-                        {
-                            continue;
-                        }
-
-                        await notionService.UpdatePageAsync(page, new PagesUpdateParameters()
-                        {
-                            Archived = false,
-                            Properties = new Dictionary<string, PropertyValue>()
-                            {
-                                {
-                                    "Current Price",
-                                    new NumberPropertyValue()
-                                        {Id = currentPricePropertyValue.Id, Number = k.CurrentPrice}
-                                }
-                            }
-                        });
-                        _logger.LogInformation("Master database updated for user {UserId}", user.Id);
-                    }
-                    catch (Exception e)
-                    {
-                        // Ignored
-                    }
-                }
-
+                await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
             }
 
-            await Task.Delay(5_000);
+            await Task.Delay(5_000, stoppingToken);
         }
     }
 
-    private async Task UpdateMasterDatabaseForUser(INotionService
-        notionService, ICryptocurrencyService cryptocurrencyService)
+    private static async Task UpdateMasterDatabaseForUser(INotionService
+        notionService, ICryptocurrencyService cryptocurrencyService, MasterTable masterTable)
     {
+        var coins = (await cryptocurrencyService.GetAllSupportedCryptocurrenciesAsync()).ToList();
+        foreach (var page in masterTable.TokenPages)
+        {
+            try
+            {
+                if (page.Ticker == null) continue;
+                Cryptocurrency j;
+                try
+                {
+                    // TODO Change this to use cryptocurrency name also
+                    j = coins.First(x => x.Symbol == page.Ticker.ToLower());
+                }
+                catch (InvalidOperationException e)
+                {
+                    continue;
+                }
+
+                var k = await cryptocurrencyService.GetCryptocurrencyDetailsAsync(j);
+                // TODO If error: change ticker value to Error Code with current ticker itself
+
+                await notionService.UpdatePageAsync(page.NotionPage, new PagesUpdateParameters()
+                {
+                    Archived = false,
+                    Properties = new Dictionary<string, PropertyValue>()
+                    {
+                        {
+                            "Current Price",
+                            new NumberPropertyValue() {Number = k.CurrentPrice}
+                        }
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                Log.Information(e, "");
+            }
+        }
     }
 }

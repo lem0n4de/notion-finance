@@ -1,4 +1,5 @@
 ﻿using Notion.Client;
+using NotionFinance.Models.Tables;
 using User = NotionFinance.Models.User;
 
 namespace NotionFinance.Services;
@@ -15,4 +16,6 @@ public interface INotionService
     public Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId);
     public Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters);
     public Task UpdateDatabasesAndPagesAsync();
+
+    public Task<MasterTable> GetMasterTable();
 }
