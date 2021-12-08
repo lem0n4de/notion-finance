@@ -11,8 +11,21 @@ using NotionFinance;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Services;
+using Serilog;
+using Serilog.Events;
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Debug()
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Debug());
 
 // Add services to the container.
 builder.Services.AddHttpClient();
