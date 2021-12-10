@@ -6,6 +6,7 @@ using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Models;
 using NotionFinance.Models.Tables;
+using NotionFinance.Services.Forex;
 using Serilog;
 using User = NotionFinance.Models.User;
 
@@ -26,6 +27,7 @@ public class NotionAutoUpdateService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var cryptocurrencyService = scope.ServiceProvider.GetRequiredService<ICryptocurrencyService>();
+        var forexService = scope.ServiceProvider.GetRequiredService<IForexService>();
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -50,9 +52,46 @@ public class NotionAutoUpdateService : BackgroundService
                 }
 
                 await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
+                await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable);
             }
 
             await Task.Delay(5_000, stoppingToken);
+        }
+    }
+
+    private static async Task UpdateForexDataForMasterDatabase(INotionService notionService, IForexService forexService,
+        MasterTable masterTable)
+    {
+        var currencies = await forexService.GetSupportedCurrenciesAsync();
+        foreach (var page in masterTable.ForexPages)
+        {
+            Currency from;
+            Currency to;
+            try
+            {
+                if (page.Ticker == null) continue;
+                from = new Currency() {Ticker = page.Ticker[..3], Value = 1};
+                to = new Currency() {Ticker = page.Ticker[3..], Value = 1};
+            }
+            catch (Exception e)
+            {
+                Log.Debug(e, "Failed to get currency tickers");
+                continue;
+            }
+
+            var conversion = await forexService.ConvertAsync(from, to);
+
+            await notionService.UpdatePageAsync(page.NotionPage, new PagesUpdateParameters()
+            {
+                Archived = false,
+                Properties = new Dictionary<string, PropertyValue>()
+                {
+                    {
+                        "Current Price",
+                        new NumberPropertyValue() {Number = conversion.Rates[0].Value}
+                    }
+                }
+            });
         }
     }
 

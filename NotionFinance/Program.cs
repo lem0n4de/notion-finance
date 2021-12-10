@@ -11,6 +11,7 @@ using NotionFinance;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Services;
+using NotionFinance.Services.Forex;
 using Serilog;
 using Serilog.Events;
 
@@ -51,6 +52,7 @@ builder.Services.AddScoped<INotionClient>(provider =>
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();
+builder.Services.AddTransient<IForexService, ExchangeRateService>();
 builder.Services.AddTransient<ICryptocurrencyService, CoinGeckoService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
