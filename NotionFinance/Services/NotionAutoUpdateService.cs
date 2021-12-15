@@ -16,6 +16,7 @@ public class NotionAutoUpdateService : BackgroundService
 {
     private ILogger<NotionAutoUpdateService> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private DateTime LastForexUpdate { get; set; } = DateTime.MinValue;
 
     public NotionAutoUpdateService(IServiceProvider serviceProvider, ILogger<NotionAutoUpdateService> logger)
     {
@@ -52,17 +53,19 @@ public class NotionAutoUpdateService : BackgroundService
                 }
 
                 await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
-                await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable);
+                LastForexUpdate =
+                    await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
             }
 
             await Task.Delay(5_000, stoppingToken);
         }
     }
 
-    private static async Task UpdateForexDataForMasterDatabase(INotionService notionService, IForexService forexService,
-        MasterTable masterTable)
+    private static async Task<DateTime> UpdateForexDataForMasterDatabase(INotionService notionService,
+        IForexService forexService,
+        MasterTable masterTable, DateTime lastForexUpdate)
     {
-        var currencies = await forexService.GetSupportedCurrenciesAsync();
+        if (DateTime.Now - lastForexUpdate < TimeSpan.FromMinutes(5)) return lastForexUpdate;
         foreach (var page in masterTable.ForexPages)
         {
             Currency from;
@@ -93,6 +96,8 @@ public class NotionAutoUpdateService : BackgroundService
                 }
             });
         }
+
+        return DateTime.Now;
     }
 
     private static async Task UpdateMasterDatabaseForUser(INotionService

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Notion.Client;
@@ -40,7 +41,6 @@ builder.Services.AddScoped<INotionClient>(provider =>
     var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
     if (httpContextAccessor == null) // Not in a request
     {
-        
     }
 
     var emailClaim = httpContextAccessor!.HttpContext!.User.FindFirst(ClaimTypes.Email);
@@ -52,7 +52,11 @@ builder.Services.AddScoped<INotionClient>(provider =>
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();
-builder.Services.AddTransient<IForexService, ExchangeRateService>();
+builder.Services.AddTransient<IForexService, AlphaVantageService>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new AlphaVantageService(configuration["AlphaVantage:APIKey"]);
+});
 builder.Services.AddTransient<ICryptocurrencyService, CoinGeckoService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
