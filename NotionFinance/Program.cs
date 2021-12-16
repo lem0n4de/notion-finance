@@ -33,7 +33,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<UserDbContext>(options =>
-    options.UseSqlite($"Data Source={builder.Configuration["Sqlite:Users"]}"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHostedService<NotionAutoUpdateService>();
 builder.Services.AddScoped<INotionClient>(provider =>
