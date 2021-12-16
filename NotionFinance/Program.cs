@@ -52,6 +52,7 @@ builder.Services.AddScoped<INotionClient>(provider =>
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();
+builder.Services.AddTransient<IForexService, AwesomeApiBrazilService>();
 builder.Services.AddTransient<IForexService, AlphaVantageService>(provider =>
 {
     var configuration = provider.GetRequiredService<IConfiguration>();

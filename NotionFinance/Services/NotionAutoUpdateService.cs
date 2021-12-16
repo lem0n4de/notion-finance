@@ -29,6 +29,7 @@ public class NotionAutoUpdateService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var cryptocurrencyService = scope.ServiceProvider.GetRequiredService<ICryptocurrencyService>();
         var forexService = scope.ServiceProvider.GetRequiredService<IForexService>();
+        var forexServices = scope.ServiceProvider.GetServices<IForexService>();
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
