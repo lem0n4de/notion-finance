@@ -7,7 +7,7 @@ using Serilog;
 
 namespace NotionFinance.Services.Forex;
 
-public class ExchangeRateService : IForexService
+public class ExchangeRateService : IForexApiService
 {
     private HttpClient _httpClient;
     private static string ExchangeRatesBaseUrl = "https://api.exchangerate.host";

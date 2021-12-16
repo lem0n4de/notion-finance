@@ -52,12 +52,14 @@ builder.Services.AddScoped<INotionClient>(provider =>
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();
-builder.Services.AddTransient<IForexService, AwesomeApiBrazilService>();
-builder.Services.AddTransient<IForexService, AlphaVantageService>(provider =>
+builder.Services.AddTransient<IForexApiService, AwesomeApiBrazilService>();
+builder.Services.AddTransient<IForexApiService, AlphaVantageService>(provider =>
 {
     var configuration = provider.GetRequiredService<IConfiguration>();
     return new AlphaVantageService(configuration["AlphaVantage:APIKey"]);
 });
+builder.Services.AddTransient<IForexApiService, ExchangeRateService>();
+builder.Services.AddTransient<IForexService, ForexService>();
 builder.Services.AddTransient<ICryptocurrencyService, CoinGeckoService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>

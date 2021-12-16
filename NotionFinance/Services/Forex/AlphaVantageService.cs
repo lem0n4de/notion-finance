@@ -8,7 +8,7 @@ using static System.Enum;
 
 namespace NotionFinance.Services.Forex;
 
-public class AlphaVantageService : IForexService
+public class AlphaVantageService : IForexApiService
 {
     private string _alphaVantageApiKey;
 
@@ -33,7 +33,7 @@ public class AlphaVantageService : IForexService
         var success2 = TryParse(to.Ticker, out t);
         if (!success1 || !success2)
         {
-            throw new ForexServiceError();
+            throw new ForexServiceException();
         }
 
         var forexExchangeRate =
@@ -78,8 +78,8 @@ public class AlphaVantageService : IForexService
         throw new NotImplementedException();
     }
 
-    public Task<IEnumerable<Currency>> GetSupportedCurrenciesAsync()
+    public async Task<IEnumerable<Currency>> GetSupportedCurrenciesAsync()
     {
-        throw new NotImplementedException();
+        return new List<Currency>();
     }
 }

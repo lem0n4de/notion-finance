@@ -6,7 +6,7 @@ using Serilog;
 
 namespace NotionFinance.Services.Forex;
 
-public class AwesomeApiBrazilService : IForexService
+public class AwesomeApiBrazilService : IForexApiService
 {
     private HttpClient _httpClient;
 
@@ -44,12 +44,12 @@ public class AwesomeApiBrazilService : IForexService
         catch (NullReferenceException e)
         {
             Log.Debug(e, "Failed attempt of currency conversion from AwesomeApiBrazilService");
-            throw new ForexServiceError();
+            throw new ForexServiceException();
         }
         catch (HttpRequestException e)
         {
             Log.Debug(e, "");
-            throw new ForexServiceError();
+            throw new ForexServiceException();
         }
     }
 
@@ -64,7 +64,7 @@ public class AwesomeApiBrazilService : IForexService
                 var conversion = await ConvertAsync(from, currency);
                 rates.Add(conversion.Rates[0]);
             }
-            catch (ForexServiceError e)
+            catch (ForexServiceException e)
             {
                 Log.Debug(e, "Error while converting {Ticker}", currency.Ticker);
                 continue;
@@ -89,8 +89,8 @@ public class AwesomeApiBrazilService : IForexService
         throw new NotImplementedException();
     }
 
-    public Task<IEnumerable<Currency>> GetSupportedCurrenciesAsync()
+    public async Task<IEnumerable<Currency>> GetSupportedCurrenciesAsync()
     {
-        throw new NotImplementedException();
+        return new List<Currency>();
     }
 }
