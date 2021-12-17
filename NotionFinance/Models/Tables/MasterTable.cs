@@ -15,7 +15,7 @@ public class MasterTable
         {
             try
             {
-                return page.Type == MasterTablePage.MasterTablePageType.Token;
+                return page.Type == AssetType.Token;
             }
             catch (Exception e)
             {
@@ -29,7 +29,7 @@ public class MasterTable
         {
             try
             {
-                return page.Type == MasterTablePage.MasterTablePageType.Fx;
+                return page.Type == AssetType.Fx;
             }
             catch (Exception e)
             {

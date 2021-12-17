@@ -6,7 +6,7 @@ public class MasterTablePage
 {
     public string? NotionId { get; set; }
     public string? Name { get; set; }
-    public MasterTablePageType? Type { get; set; }
+    public AssetType? Type { get; set; }
     public string? Ticker { get; set; }
     public Date? EntryDate { get; set; }
     public float? InvestmentAmount { get; set; }
@@ -37,11 +37,11 @@ public class MasterTablePage
                 : (selectPropertyValue as SelectPropertyValue)!.Select.Name;
             tablePage.Type = typeString switch
             {
-                "Token" => MasterTablePageType.Token,
-                "FX" => MasterTablePageType.Fx,
-                "IndividualStock" => MasterTablePageType.IndividualStock,
-                "Bond ETF" => MasterTablePageType.BondEtf,
-                "ETF" => MasterTablePageType.Etf,
+                "Token" => AssetType.Token,
+                "FX" => AssetType.Fx,
+                "IndividualStock" => AssetType.IndividualStock,
+                "Bond ETF" => AssetType.BondEtf,
+                "ETF" => AssetType.Etf,
                 _ => null
             };
 
@@ -93,15 +93,6 @@ public class MasterTablePage
         }
 
         return tablePage;
-    }
-
-    public enum MasterTablePageType
-    {
-        Token,
-        Fx,
-        Etf,
-        BondEtf,
-        IndividualStock
     }
 
     public enum MasterTablePageDirection
