@@ -6,5 +6,6 @@ public enum AssetType
     Fx,
     Etf,
     BondEtf,
-    IndividualStock
+    IndividualStock,
+    Commodity
 }
