@@ -40,7 +40,7 @@ public class NotionAuthorizationController : Controller
         // state is inside double brackets because notion thinks its a number and not a string.
         var url =
             $"{NotionOAuthUrl}?owner=user&response_type=code&client_id={_configuration["Notion:ClientId"]}" +
-            $"&redirect_uri=https://localhost:7047/api/notion/callback&state=\"{user.Id}\"";
+            $"&redirect_uri={_configuration["Notion:CallbackBaseUrl"]}/api/notion/callback&state=\"{user.Id}\"";
         return url;
     }
 
@@ -58,7 +58,7 @@ public class NotionAuthorizationController : Controller
                 Encoding.UTF8.GetBytes($"{_configuration["Notion:ClientId"]}:{_configuration["Notion:ClientSecret"]}"));
         var serializedString = JsonSerializer.Serialize(new
         {
-            grant_type = "authorization_code", code = code, redirect_uri = "https://localhost:7047/api/notion/callback"
+            grant_type = "authorization_code", code = code, redirect_uri = $"{_configuration["Notion:CallbackBaseUrl"]}/api/notion/callback"
         });
         req.Headers.TryAddWithoutValidation("Authorization", $"Basic {base64Secret}");
         req.Headers.TryAddWithoutValidation("Notion-Version", "2021-08-16");
