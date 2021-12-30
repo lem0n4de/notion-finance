@@ -2,6 +2,7 @@
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Models.Tables;
+using Serilog;
 using User = NotionFinance.Models.User;
 
 namespace NotionFinance.Services;
@@ -96,7 +97,15 @@ public class NotionService : INotionService
 
     public async Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters)
     {
-        await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters);
+        for (var i = 0; i<10; i++) {
+            try {
+                await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters);
+                break;
+            }
+            catch (NotionApiException e) {
+                Log.Debug(e, "UpdatePageAsync failed, trying again");
+            }
+        }
     }
 
     public async Task UpdateDatabasesAndPagesAsync()
