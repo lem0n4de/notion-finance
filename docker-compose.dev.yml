@@ -10,8 +10,12 @@ services:
       dockerfile: NotionFinance/Dockerfile
     ports:
       - 80:7047
+      - 443:7048
     environment:
+      - Notion__CallbackBaseUrl=https://localhost
+      - Notion__ClientId=c1d26f89-3a98-44cb-9735-fa431b8647b7
+      - Notion__ClientSecret=secret_lihsbzrqnlKJh9uNDupPcG7aVnA3vS24EwcBjP2GSrr
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:7047
+      - ASPNETCORE_URLS=http://+:7047;https://+:7048
     volumes:
       - ~/.vsdbg:/remote_debugger:rw

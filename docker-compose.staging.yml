@@ -1,0 +1,18 @@
+# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP .NET Core service.
+
+version: '3.4'
+
+services:
+  notionfinance:
+    image: lem0n4de/notion-finance:latest
+    build:
+      context: .
+      dockerfile: NotionFinance/Dockerfile
+    ports:
+      - 80:7047
+      - 443:7048
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:7047;https://+:7048
+    volumes:
+      - ~/.vsdbg:/remote_debugger:rw

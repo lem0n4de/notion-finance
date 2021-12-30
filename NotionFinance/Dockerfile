@@ -13,12 +13,13 @@ COPY ["NotionFinance/NotionFinance.csproj", "NotionFinance/"]
 RUN dotnet restore "NotionFinance/NotionFinance.csproj" --disable-parallel
 COPY . .
 WORKDIR "/src/NotionFinance"
-RUN dotnet build "NotionFinance.csproj" -c Release -o /app/build
+RUN dotnet build "NotionFinance.csproj" -c Debug -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "NotionFinance.csproj" -c Release -o /app/publish
+RUN dotnet publish "NotionFinance.csproj" -c Debug -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY ["NotionFinance/https.pfx", "/https/https.pfx"]
 ENTRYPOINT ["dotnet", "NotionFinance.dll"]
