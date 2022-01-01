@@ -33,40 +33,44 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            foreach (var user in await userDbContext.Users.Where(x => x.NotionAccessToken != null)
-                         .ToListAsync(stoppingToken))
-            {
-                try
-                {
-                    _logger.LogInformation("Starting update process for user {UserId}", user.Id);
-                    var notionService = new NotionService(userDbContext,
-                        NotionClientFactory.Create(new ClientOptions() { AuthToken = user.NotionAccessToken }));
-                    MasterTable masterTable;
-                    try
-                    {
-                        var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
-                        var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
-                        masterTable = await MasterTable.Create(masterDb, masterDbPages);
-                        _logger.LogInformation("Master Database found for User {Id}", user.Id);
-                    }
-                    catch (NotionDatabaseNotFoundException e)
-                    {
-                        _logger.LogError(e, "Master database not found, creating");
-                        await notionService.CreateMasterTable();
-                        continue;
-                    }
+            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null)
+                         .ToListAsync(stoppingToken);
+            var options = new ParallelOptions {
+                CancellationToken = stoppingToken,
+                MaxDegreeOfParallelism = System.Environment.ProcessorCount
+            };
+            await Parallel.ForEachAsync(users, options, async (user, cancellationToken) =>
+                         {
+                             try
+                             {
+                                 _logger.LogInformation("Starting update process for user {UserId}", user.Id);
+                                 var notionService = new NotionService(userDbContext,
+                                     NotionClientFactory.Create(new ClientOptions() { AuthToken = user.NotionAccessToken }));
+                                 MasterTable masterTable;
+                                 try
+                                 {
+                                     var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
+                                     var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
+                                     masterTable = await MasterTable.Create(masterDb, masterDbPages);
+                                     _logger.LogInformation("Master Database found for User {Id}", user.Id);
+                                 }
+                                 catch (NotionDatabaseNotFoundException e)
+                                 {
+                                     _logger.LogError(e, "Master database not found, creating");
+                                     await notionService.CreateMasterTable();
+                                     return;
+                                 }
 
-                    await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
-                    LastForexUpdate =
-                        await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
+                                 await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
+                                 LastForexUpdate =
+                                     await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
 
-                }
-                catch (Exception e)
-                {
-                    _logger.LogInformation(e, "");
-                }
-            }
-
+                             }
+                             catch (Exception e)
+                             {
+                                 _logger.LogInformation(e, "");
+                             }
+                         });
             await Task.Delay(5_000, stoppingToken);
         }
     }
