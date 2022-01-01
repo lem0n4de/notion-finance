@@ -3,6 +3,7 @@ using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Models.Tables;
 using Serilog;
+using Polly;
 using User = NotionFinance.Models.User;
 
 namespace NotionFinance.Services;
@@ -37,18 +38,18 @@ public class NotionService : INotionService
     {
         var res = await _client.Search.SearchAsync(new SearchParameters()
         {
-            Filter = new SearchFilter() {Value = SearchObjectType.Database}
+            Filter = new SearchFilter() { Value = SearchObjectType.Database }
         });
 
-        var tempList = res.Results.Cast<Database>().Where(database => database != null).ToList();
-        _databases = tempList;
+        var tempList = res.Results.Cast<Database>().Where(database => database != null && _databases.All(x => x.Id != database.Id)).ToList();
+        _databases.AddRange(tempList);
 
         return _databases;
     }
 
     public async Task<Database> GetDatabaseByIdAsync(string databaseId)
     {
-        if (!_databases.Any()) await GetDatabasesAsync();
+        await GetDatabasesAsync();
         var database = _databases.Find(x => x.Id == databaseId);
         if (database == null) throw new NotionDatabaseNotFoundException();
         return database;
@@ -56,7 +57,7 @@ public class NotionService : INotionService
 
     public async Task<Database> GetDatabaseByNameAsync(string databaseName)
     {
-        if (!_databases.Any()) await GetDatabasesAsync();
+        await GetDatabasesAsync();
         var database = _databases.Find(x => x.Title[0].PlainText == databaseName);
         if (database == null) throw new NotionDatabaseNotFoundException();
         return database;
@@ -66,12 +67,12 @@ public class NotionService : INotionService
     {
         var res = await _client.Search.SearchAsync(new SearchParameters
         {
-            Filter = new SearchFilter() {Value = SearchObjectType.Page}
+            Filter = new SearchFilter() { Value = SearchObjectType.Page }
         });
 
         foreach (var page in res.Results.Cast<Page>())
         {
-            if (page != null) _pages.Add(page);
+            if (page != null && !_pages.Any(x => x.Id == page.Id)) _pages.Add(page);
         }
 
         return _pages;
@@ -79,17 +80,32 @@ public class NotionService : INotionService
 
     public async Task<Page> GetPagesByIdAsync(string pageId)
     {
-        if (!_pages.Any()) await GetPagesAsync();
+        await GetPagesAsync();
         var page = _pages.Find(x => x.Id == pageId);
         if (page == null) throw new NotionPageNotFoundException();
         return page;
     }
 
+    public async Task<Page?> GetPageByNameAsync(string name)
+    {
+        await GetPagesAsync();
+        foreach (var page in _pages)
+        {
+            var namePropertyValue = page.Properties["title"];
+            var n = namePropertyValue == null
+                ? null
+                : (namePropertyValue as TitlePropertyValue)!.Title[0].PlainText;
+            if (n == null) continue;
+            if (n.Contains(name)) return page;
+        }
+        return null;
+    }
+
     public async Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId)
     {
-        if (!_pages.Any()) await GetPagesAsync();
+        await GetPagesAsync();
         var pagesOfDatabase = _pages.Where(page =>
-                page.Parent is {Type: ParentType.DatabaseId} &&
+                page.Parent is { Type: ParentType.DatabaseId } &&
                 (page.Parent as DatabaseParent)!.DatabaseId == databaseId)
             .ToList();
         return pagesOfDatabase;
@@ -97,12 +113,15 @@ public class NotionService : INotionService
 
     public async Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters)
     {
-        for (var i = 0; i<10; i++) {
-            try {
+        for (var i = 0; i < 10; i++)
+        {
+            try
+            {
                 await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters);
                 break;
             }
-            catch (NotionApiException e) {
+            catch (NotionApiException e)
+            {
                 Log.Debug(e, "UpdatePageAsync failed, trying again");
             }
         }
@@ -116,9 +135,58 @@ public class NotionService : INotionService
 
     public async Task<MasterTable> GetMasterTable()
     {
-        if (_databases.Any()) await GetDatabasesAsync();
-        var masterDb = _databases.Find(database => database.Title[0].PlainText == "Master Database");
-        if (masterDb == null) throw new NotionDatabaseNotFoundException();
-        return await MasterTable.Create(masterDb);
+        return await Policy
+            .Handle<NotionDatabaseNotFoundException>()
+            .WaitAndRetryAsync(10, (x) => TimeSpan.FromMilliseconds(500))
+            .ExecuteAsync(async () =>
+            {
+                await GetDatabasesAsync();
+                var masterDb = _databases.Find(database => database.Title[0].PlainText == "Master Database");
+                if (masterDb == null) throw new NotionDatabaseNotFoundException();
+                return await MasterTable.Create(masterDb);
+            });
+    }
+
+    public async Task<MasterTable> CreateMasterTable()
+    {
+        try
+        {
+            var page = await GetPageByNameAsync("Notion Finance Tracker Home");
+            if (page == null) throw new NotionPageNotFoundException();
+
+            var database = await _client.Databases.CreateAsync(new DatabasesCreateParameters()
+            {
+                Parent = new ParentPageInput() { PageId = page.Id },
+                Title = new List<RichTextBaseInput>() { new RichTextTextInput() { Text = new Text { Content = "Master Database", Link = null } } },
+                Properties = new Dictionary<string, IPropertySchema>()
+            {
+                {"Name", new TitlePropertySchema() {Title = new Dictionary<string, object>()}},
+                {
+                    "Type", new SelectPropertySchema()
+                    {
+                        Select = new OptionWrapper<SelectOptionSchema>()
+                        {
+                            Options = new List<SelectOptionSchema>()
+                            {
+                                new SelectOptionSchema() { Color = Color.Orange, Name = "Token"},
+                                new SelectOptionSchema() { Color = Color.Blue, Name = "Bond ETF"},
+                                new SelectOptionSchema() { Color = Color.Purple, Name = "Individual Stock"},
+                                new SelectOptionSchema() { Color = Color.Gray, Name = "ETF"},
+                                new SelectOptionSchema() { Color = Color.Pink, Name = "FX"}
+                            }
+                        }
+                    }
+                },
+                { "Current Price", new NumberPropertySchema() { Number = new Number() { Format = NumberFormat.Dollar } }},
+                { "Ticker", new RichTextPropertySchema() { RichText = new Dictionary<string, object>() }}
+            }
+            });
+            _databases.Add(database);
+        }
+        catch (Exception e)
+        {
+            Log.Debug(e, "Some error on CreateMasterTable");
+        }
+        return await GetMasterTable();
     }
 }

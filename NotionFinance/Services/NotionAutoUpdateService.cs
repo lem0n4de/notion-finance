@@ -36,26 +36,35 @@ public class NotionAutoUpdateService : BackgroundService
             foreach (var user in await userDbContext.Users.Where(x => x.NotionAccessToken != null)
                          .ToListAsync(stoppingToken))
             {
-                _logger.LogInformation("Starting update process for user {UserId}", user.Id);
-                var notionService = new NotionService(userDbContext,
-                    NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken}));
-                MasterTable masterTable;
                 try
                 {
-                    var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
-                    var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
-                    masterTable = await MasterTable.Create(masterDb, masterDbPages);
-                    _logger.LogInformation("Master Database found for User {Id}", user.Id);
-                }
-                catch (NotionDatabaseNotFoundException e)
-                {
-                    _logger.LogError(e, "Master database not found");
-                    continue;
-                }
+                    _logger.LogInformation("Starting update process for user {UserId}", user.Id);
+                    var notionService = new NotionService(userDbContext,
+                        NotionClientFactory.Create(new ClientOptions() { AuthToken = user.NotionAccessToken }));
+                    MasterTable masterTable;
+                    try
+                    {
+                        var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
+                        var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
+                        masterTable = await MasterTable.Create(masterDb, masterDbPages);
+                        _logger.LogInformation("Master Database found for User {Id}", user.Id);
+                    }
+                    catch (NotionDatabaseNotFoundException e)
+                    {
+                        _logger.LogError(e, "Master database not found, creating");
+                        await notionService.CreateMasterTable();
+                        continue;
+                    }
 
-                await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
-                LastForexUpdate =
-                    await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
+                    await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
+                    LastForexUpdate =
+                        await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
+
+                }
+                catch (Exception e)
+                {
+                    _logger.LogInformation(e, "");
+                }
             }
 
             await Task.Delay(5_000, stoppingToken);
@@ -74,8 +83,8 @@ public class NotionAutoUpdateService : BackgroundService
             try
             {
                 if (page.Ticker == null) continue;
-                from = new Currency() {Ticker = page.Ticker[..3], Value = 1};
-                to = new Currency() {Ticker = page.Ticker[3..], Value = 1};
+                from = new Currency() { Ticker = page.Ticker[..3], Value = 1 };
+                to = new Currency() { Ticker = page.Ticker[3..], Value = 1 };
             }
             catch (Exception e)
             {
