@@ -1,4 +1,5 @@
-﻿using Notion.Client;
+﻿using System.Diagnostics;
+using Notion.Client;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Models.Tables;
@@ -38,10 +39,15 @@ public class NotionService : INotionService
     {
         var res = await _client.Search.SearchAsync(new SearchParameters()
         {
-            Filter = new SearchFilter() { Value = SearchObjectType.Database }
+            Filter = new SearchFilter() {Value = SearchObjectType.Database}
         });
 
-        var tempList = res.Results.Cast<Database>().Where(database => database != null && _databases.All(x => x.Id != database.Id)).ToList();
+        if (res?.Results == null || res.Results.Count <= 0) return new List<Database>();
+
+        var tempList = res.Results.Cast<Database>()
+            .Where(database => database != null)
+            .DistinctBy(x => x.Id)
+            .Where(database => _databases.All(x => x.Id != database.Id)).ToList();
         _databases.AddRange(tempList);
 
         return _databases;
@@ -67,7 +73,7 @@ public class NotionService : INotionService
     {
         var res = await _client.Search.SearchAsync(new SearchParameters
         {
-            Filter = new SearchFilter() { Value = SearchObjectType.Page }
+            Filter = new SearchFilter() {Value = SearchObjectType.Page}
         });
 
         foreach (var page in res.Results.Cast<Page>())
@@ -98,6 +104,7 @@ public class NotionService : INotionService
             if (n == null) continue;
             if (n.Contains(name)) return page;
         }
+
         return null;
     }
 
@@ -105,7 +112,7 @@ public class NotionService : INotionService
     {
         await GetPagesAsync();
         var pagesOfDatabase = _pages.Where(page =>
-                page.Parent is { Type: ParentType.DatabaseId } &&
+                page.Parent is {Type: ParentType.DatabaseId} &&
                 (page.Parent as DatabaseParent)!.DatabaseId == databaseId)
             .ToList();
         return pagesOfDatabase;
@@ -156,30 +163,34 @@ public class NotionService : INotionService
 
             var database = await _client.Databases.CreateAsync(new DatabasesCreateParameters()
             {
-                Parent = new ParentPageInput() { PageId = page.Id },
-                Title = new List<RichTextBaseInput>() { new RichTextTextInput() { Text = new Text { Content = "Master Database", Link = null } } },
+                Parent = new ParentPageInput() {PageId = page.Id},
+                Title = new List<RichTextBaseInput>()
+                    {new RichTextTextInput() {Text = new Text {Content = "Master Database", Link = null}}},
                 Properties = new Dictionary<string, IPropertySchema>()
-            {
-                {"Name", new TitlePropertySchema() {Title = new Dictionary<string, object>()}},
                 {
-                    "Type", new SelectPropertySchema()
+                    {"Name", new TitlePropertySchema() {Title = new Dictionary<string, object>()}},
                     {
-                        Select = new OptionWrapper<SelectOptionSchema>()
+                        "Type", new SelectPropertySchema()
                         {
-                            Options = new List<SelectOptionSchema>()
+                            Select = new OptionWrapper<SelectOptionSchema>()
                             {
-                                new SelectOptionSchema() { Color = Color.Orange, Name = "Token"},
-                                new SelectOptionSchema() { Color = Color.Blue, Name = "Bond ETF"},
-                                new SelectOptionSchema() { Color = Color.Purple, Name = "Individual Stock"},
-                                new SelectOptionSchema() { Color = Color.Gray, Name = "ETF"},
-                                new SelectOptionSchema() { Color = Color.Pink, Name = "FX"}
+                                Options = new List<SelectOptionSchema>()
+                                {
+                                    new SelectOptionSchema() {Color = Color.Orange, Name = "Token"},
+                                    new SelectOptionSchema() {Color = Color.Blue, Name = "Bond ETF"},
+                                    new SelectOptionSchema() {Color = Color.Purple, Name = "Individual Stock"},
+                                    new SelectOptionSchema() {Color = Color.Gray, Name = "ETF"},
+                                    new SelectOptionSchema() {Color = Color.Pink, Name = "FX"}
+                                }
                             }
                         }
-                    }
-                },
-                { "Current Price", new NumberPropertySchema() { Number = new Number() { Format = NumberFormat.Dollar } }},
-                { "Ticker", new RichTextPropertySchema() { RichText = new Dictionary<string, object>() }}
-            }
+                    },
+                    {
+                        "Current Price",
+                        new NumberPropertySchema() {Number = new Number() {Format = NumberFormat.Dollar}}
+                    },
+                    {"Ticker", new RichTextPropertySchema() {RichText = new Dictionary<string, object>()}}
+                }
             });
             _databases.Add(database);
         }
@@ -187,6 +198,7 @@ public class NotionService : INotionService
         {
             Log.Debug(e, "Some error on CreateMasterTable");
         }
+
         return await GetMasterTable();
     }
 }
