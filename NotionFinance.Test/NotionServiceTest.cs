@@ -11,6 +11,7 @@ using FluentAssertions;
 using Moq;
 using Notion.Client;
 using NotionFinance.Data;
+using NotionFinance.Exceptions;
 using NotionFinance.Services;
 using Xunit;
 
@@ -97,5 +98,194 @@ public class NotionServiceTest
         databases.Should().NotBeEmpty();
         databases.Should().OnlyHaveUniqueItems(x => x.Id);
         databases.Should().HaveCount(2);
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetDatabaseByIdAsyncThrowsIfDatabaseNotFound(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var database1 = new Database() {Id = Guid.NewGuid().ToString()};
+        var database2 = new Database() {Id = Guid.NewGuid().ToString()};
+        var database3 = new Database() {Id = Guid.NewGuid().ToString()};
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+            {
+                Results = new List<IObject>(new List<Database>() {database1, database2, database3})
+            });
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act & Assert
+        await notionService.Awaiting(x => x.GetDatabaseByIdAsync(Guid.NewGuid().ToString())).Should()
+            .ThrowAsync<NotionDatabaseNotFoundException>();
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetDatabaseByIdAsyncReturnsCorrectDatabase(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var database1 = new Database() {Id = Guid.NewGuid().ToString()};
+        var database2 = new Database() {Id = Guid.NewGuid().ToString()};
+        var database3 = new Database() {Id = Guid.NewGuid().ToString()};
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+            {
+                Results = new List<IObject>(new List<Database>() {database1, database2, database3})
+            });
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act
+        var database = await notionService.GetDatabaseByIdAsync(database1.Id);
+        // Assert
+        database.Should().NotBeNull();
+        database.Should().BeEquivalentTo(database1);
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetDatabaseByNameAsyncThrowsIfDatabaseNotFound(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var database1 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database1", Link = null}}}
+        };
+        var database2 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database2", Link = null}}}
+        };
+        var database3 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database3", Link = null}}}
+        };
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+            {
+                Results = new List<IObject>(new List<Database>() {database1, database2, database3})
+            });
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act & Assert
+        await notionService.Awaiting(x => x.GetDatabaseByNameAsync("")).Should()
+            .ThrowAsync<NotionDatabaseNotFoundException>();
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetDatabaseByNameAsyncReturnsCorrectDatabase(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var database1 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database1", Link = null}}}
+        };
+        var database2 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database2", Link = null}}}
+        };
+        var database3 = new Database()
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = new List<RichTextBase>()
+                {new RichTextText() {Text = new Text() {Content = "Database3", Link = null}}}
+        };
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+            {
+                Results = new List<IObject>(new List<Database>() {database1, database2, database3})
+            });
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act
+        var database = await notionService.GetDatabaseByNameAsync(database1.Title[0].PlainText);
+        // Assert
+        database.Should().NotBeNull();
+        database.Should().BeEquivalentTo(database1);
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetPagesAsyncReturnAllAvailablePages(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock, PaginatedList<Page> pgs)
+    {
+        // Arrange
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>() {Results = pgs.Results.Cast<IObject>().ToList()});
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act
+        var pages = await notionService.GetPagesAsync();
+        // Assert
+        notionClientMock.Verify(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()), Times.Once);
+        pages.Should().NotBeEmpty();
+        pages.Should().NotContainNulls();
+        pages.Should().BeEquivalentTo(pgs.Results);
+    }
+    
+    [Theory, AutoMoqData]
+    public async Task GetPagesAsyncReturnEmptyListIfNoDatabaseAvailable(Mock<INotionClient> notionClientMock,
+        Mock<UserDbContext> userDbContextMock)
+    {
+        // Arrange
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>() {Results = new List<IObject>()});
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+
+        // Act
+        var pages = await notionService.GetPagesAsync();
+
+        // Assert
+        notionClientMock.Verify(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()), Times.Once);
+        pages.Should().BeEmpty();
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetPagesAsyncShouldNotContainAnyNullValues(Mock<INotionClient> notionClientMock,
+        Mock<UserDbContext> userDbContextMock, Mock<Page> page1)
+    {
+        // Arrange
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+                {Results = new List<IObject>(new List<Page>() {page1.Object, null})});
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+
+        // Act
+        var pages = await notionService.GetPagesAsync();
+
+        // Assert
+        notionClientMock.Verify(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()), Times.Once);
+        pages.Should().NotBeEmpty();
+        pages.Should().HaveCount(1);
+        pages.Should().NotContainNulls();
+    }
+
+    [Theory, AutoMoqData]
+    public async Task GetPagesAsyncDoesNotReturnMultipleDatabasesWithTheSameId(
+        Mock<UserDbContext> userDbContextMock, Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var page1 = new Page() {Id = Guid.NewGuid().ToString()};
+        var page2 = new Page() {Id = Guid.NewGuid().ToString()};
+        var page3 = new Page() {Id = page1.Id};
+        notionClientMock.Setup(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()))
+            .ReturnsAsync(new PaginatedList<IObject>()
+            {
+                Results = new List<IObject>(new List<Page>() {page1, page2, page3})
+            });
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+
+        // Act
+        var pages = await notionService.GetPagesAsync();
+
+        // Assert
+        notionClientMock.Verify(x => x.Search.SearchAsync(It.IsAny<SearchParameters>()), Times.Once);
+        pages.Should().NotBeEmpty();
+        pages.Should().OnlyHaveUniqueItems(x => x.Id);
+        pages.Should().HaveCount(2);
     }
 }
