@@ -10,5 +10,7 @@ services:
       dockerfile: NotionFinance/Dockerfile
     ports:
       - 80:7047
+      - 443:7048
     environment:
-      - ASPNETCORE_URLS=http://+:7047
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:7047;https://+:7048
