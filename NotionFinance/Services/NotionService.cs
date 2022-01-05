@@ -118,20 +118,12 @@ public class NotionService : INotionService
         return pagesOfDatabase;
     }
 
-    public async Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters)
+    public async Task<Page> UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters)
     {
-        for (var i = 0; i < 10; i++)
-        {
-            try
-            {
-                await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters);
-                break;
-            }
-            catch (NotionApiException e)
-            {
-                Log.Debug(e, "UpdatePageAsync failed, trying again");
-            }
-        }
+        return await Policy
+            .Handle<NotionApiException>()
+            .WaitAndRetryAsync(10, i => TimeSpan.FromMilliseconds(500))
+            .ExecuteAsync(async () => await _client.Pages.UpdateAsync(page.Id, pagesUpdateParameters));
     }
 
     public async Task UpdateDatabasesAndPagesAsync()

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoFixture;
@@ -13,6 +14,7 @@ using Notion.Client;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Services;
+using Polly.Utilities;
 using Xunit;
 
 namespace NotionFinance.Tests;
@@ -482,5 +484,42 @@ public class NotionServiceTest
         await notionService.Awaiting(x => x.GetPagesByDatabaseAsync(database2.Id)).Should().NotThrowAsync();
         pages.Should().NotBeNull();
         pages.Should().BeEmpty();
+    }
+
+    [Theory, AutoMoqData]
+    public async Task UpdatePageAsyncShouldCallCorrectMethod(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var page = new Page() {Id = Guid.NewGuid().ToString(), IsArchived = true};
+        var pageUpdateParameters = new PagesUpdateParameters() {Archived = false};
+        notionClientMock.Setup(x =>
+                x.Pages.UpdateAsync(It.Is<string>(y => y == page.Id), It.IsAny<PagesUpdateParameters>()))
+            .ReturnsAsync(new Page() {Id = page.Id, IsArchived = pageUpdateParameters.Archived});
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act
+        var p = await notionService.UpdatePageAsync(page, pageUpdateParameters);
+        // Assert
+        p.Should().NotBeNull();
+        p.Should().NotBeEquivalentTo(page);
+        p.Id.Should().Be(page.Id);
+    }
+    
+    [Theory, AutoMoqData]
+    public async Task UpdatePageAsyncShouldTryAtLeastFiveSecondsIfNotionThrewApiException(Mock<UserDbContext> userDbContextMock,
+        Mock<INotionClient> notionClientMock)
+    {
+        // Arrange
+        var page = new Page() {Id = Guid.NewGuid().ToString(), IsArchived = true};
+        var pageUpdateParameters = new PagesUpdateParameters() {Archived = false};
+        notionClientMock.Setup(x =>
+                x.Pages.UpdateAsync(It.Is<string>(y => y == page.Id), It.IsAny<PagesUpdateParameters>()))
+            .ThrowsAsync(new NotionApiException(HttpStatusCode.BadRequest, NotionAPIErrorCode.RateLimited, "Rate Limited"));
+        var notionService = new NotionService(userDbContextMock.Object, notionClientMock.Object);
+        // Act & Assert
+        var time = DateTime.Now;
+        await notionService.Awaiting(x => x.UpdatePageAsync(page, pageUpdateParameters)).Should()
+            .ThrowAsync<NotionApiException>();
+        time.Should().BeAtLeast(TimeSpan.FromSeconds(5)).Before(DateTime.Now);
     }
 }

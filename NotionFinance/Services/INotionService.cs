@@ -15,7 +15,7 @@ public interface INotionService
     public Task<Page> GetPageByIdAsync(string pageId);
     public Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId);
     public Task<Page?> GetPageByNameAsync(string name);
-    public Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters);
+    public Task<Page> UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters);
     public Task UpdateDatabasesAndPagesAsync();
 
     public Task<MasterTable> GetMasterTable();
