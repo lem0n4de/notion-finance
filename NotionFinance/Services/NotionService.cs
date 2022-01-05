@@ -84,7 +84,7 @@ public class NotionService : INotionService
         return _pages;
     }
 
-    public async Task<Page> GetPagesByIdAsync(string pageId)
+    public async Task<Page> GetPageByIdAsync(string pageId)
     {
         await GetPagesAsync();
         var page = _pages.Find(x => x.Id == pageId);
@@ -101,11 +101,11 @@ public class NotionService : INotionService
             var n = namePropertyValue == null
                 ? null
                 : (namePropertyValue as TitlePropertyValue)!.Title[0].PlainText;
-            if (n == null) continue;
+            if (n == null) throw new NotionPageNotFoundException();
             if (n.Contains(name)) return page;
         }
 
-        return null;
+        throw new NotionPageNotFoundException();
     }
 
     public async Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId)

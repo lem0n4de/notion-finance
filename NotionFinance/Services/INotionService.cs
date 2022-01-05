@@ -12,7 +12,7 @@ public interface INotionService
     public Task<Database> GetDatabaseByIdAsync(string databaseId);
     public Task<Database> GetDatabaseByNameAsync(string databaseName);
     public Task<IEnumerable<Page>> GetPagesAsync();
-    public Task<Page> GetPagesByIdAsync(string pageId);
+    public Task<Page> GetPageByIdAsync(string pageId);
     public Task<IEnumerable<Page>> GetPagesByDatabaseAsync(string databaseId);
     public Task<Page?> GetPageByNameAsync(string name);
     public Task UpdatePageAsync(Page page, PagesUpdateParameters pagesUpdateParameters);
