@@ -7,6 +7,7 @@ using NotionFinance.Exceptions;
 using NotionFinance.Models;
 using NotionFinance.Models.Tables;
 using NotionFinance.Services.Forex;
+using Polly;
 using Serilog;
 using User = NotionFinance.Models.User;
 
@@ -33,44 +34,53 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null)
-                         .ToListAsync(stoppingToken);
-            var options = new ParallelOptions {
+            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null && x.Id == 1)
+                .ToListAsync(stoppingToken);
+            var options = new ParallelOptions
+            {
                 CancellationToken = stoppingToken,
                 MaxDegreeOfParallelism = System.Environment.ProcessorCount
             };
             await Parallel.ForEachAsync(users, options, async (user, cancellationToken) =>
-                         {
-                             try
-                             {
-                                 _logger.LogInformation("Starting update process for user {UserId}", user.Id);
-                                 var notionService = new NotionService(userDbContext,
-                                     NotionClientFactory.Create(new ClientOptions() { AuthToken = user.NotionAccessToken }));
-                                 MasterTable masterTable;
-                                 try
-                                 {
-                                     var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
-                                     var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
-                                     masterTable = await MasterTable.Create(masterDb, masterDbPages);
-                                     _logger.LogInformation("Master Database found for User {Id}", user.Id);
-                                 }
-                                 catch (NotionDatabaseNotFoundException e)
-                                 {
-                                     _logger.LogError(e, "Master database not found, creating");
-                                     await notionService.CreateMasterTable();
-                                     return;
-                                 }
-
-                                 await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
-                                 LastForexUpdate =
-                                     await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable, LastForexUpdate);
-
-                             }
-                             catch (Exception e)
-                             {
-                                 _logger.LogInformation(e, "");
-                             }
-                         });
+            {
+                try
+                {
+                    _logger.LogInformation("Starting update process for user {UserId}", user.Id);
+                    var notionService = new NotionService(userDbContext,
+                        NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken}));
+                    MasterTable? masterTable;
+                    try
+                    {
+                        await Policy
+                            .Handle<NotionDatabaseNotFoundException>()
+                            .WaitAndRetryAsync(10, retryAttempt => TimeSpan.FromSeconds(Math.Pow(retryAttempt, 1.45)),
+                                (exception, span, retryCount, context) =>
+                                    _logger.LogDebug("Retry attempt {Count} failed with exception {Message}, trying after {Span} seconds",
+                                        retryCount, exception.Message, span.Seconds))
+                            .ExecuteAsync(async () =>
+                            {
+                                var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
+                                var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
+                                masterTable = await MasterTable.Create(masterDb, masterDbPages);
+                                await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
+                                LastForexUpdate =
+                                    await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable,
+                                        LastForexUpdate);
+                            });
+                        _logger.LogInformation("Master Database found for User {Id}", user.Id);
+                    }
+                    catch (NotionDatabaseNotFoundException e)
+                    {
+                        _logger.LogError(e, "Master database not found for User {Id}, creating", user.Id);
+                        await notionService.CreateMasterTable();
+                        return;
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogInformation(e, "");
+                }
+            });
             await Task.Delay(5_000, stoppingToken);
         }
     }
@@ -87,8 +97,8 @@ public class NotionAutoUpdateService : BackgroundService
             try
             {
                 if (page.Ticker == null) continue;
-                from = new Currency() { Ticker = page.Ticker[..3], Value = 1 };
-                to = new Currency() { Ticker = page.Ticker[3..], Value = 1 };
+                from = new Currency() {Ticker = page.Ticker[..3], Value = 1};
+                to = new Currency() {Ticker = page.Ticker[3..], Value = 1};
             }
             catch (Exception e)
             {
