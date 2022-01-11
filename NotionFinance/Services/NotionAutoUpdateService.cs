@@ -34,7 +34,7 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null && x.Id == 1)
+            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null)
                 .ToListAsync(stoppingToken);
             var options = new ParallelOptions
             {
