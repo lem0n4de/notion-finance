@@ -65,7 +65,7 @@ public class NotionService : INotionService
     {
         await GetDatabasesAsync();
         var database = _databases.Find(x => x.Title[0].PlainText == databaseName);
-        if (database == null) throw new NotionDatabaseNotFoundException();
+        if (database == null) throw new NotionDatabaseNotFoundException($"{databaseName} not found");
         return database;
     }
 
@@ -188,7 +188,7 @@ public class NotionService : INotionService
         }
         catch (Exception e)
         {
-            Log.Debug(e, "Some error on CreateMasterTable");
+            Log.Information(e, "Some error on CreateMasterTable");
         }
 
         return await GetMasterTable();
