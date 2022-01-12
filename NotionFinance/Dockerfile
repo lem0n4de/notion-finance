@@ -10,7 +10,7 @@ USER appuser
 FROM mcr.microsoft.com/dotnet/sdk:6.0-focal AS build
 WORKDIR /src
 COPY ["NotionFinance/NotionFinance.csproj", "NotionFinance/"]
-RUN dotnet restore "NotionFinance/NotionFinance.csproj" --disable-parallel
+RUN dotnet restore "NotionFinance/NotionFinance.csproj"
 COPY . .
 WORKDIR "/src/NotionFinance"
 RUN dotnet build "NotionFinance.csproj" -c Debug -o /app/build

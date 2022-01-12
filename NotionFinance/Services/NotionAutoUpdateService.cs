@@ -34,7 +34,9 @@ public class NotionAutoUpdateService : BackgroundService
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            var users = await userDbContext.Users.Where(x => x.NotionAccessToken != null)
+            var users = await userDbContext.Users
+                .Include(x => x.NotionUserSettings)
+                .Where(x => x.NotionUserSettings.NotionAccessToken != null)
                 .ToListAsync(stoppingToken);
             var options = new ParallelOptions
             {
@@ -47,19 +49,49 @@ public class NotionAutoUpdateService : BackgroundService
                 {
                     _logger.LogInformation("Starting update process for user {UserId}", user.Id);
                     var notionService = new NotionService(userDbContext,
-                        NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken}));
+                        NotionClientFactory.Create(new ClientOptions()
+                            {AuthToken = user.NotionUserSettings.NotionAccessToken}));
                     MasterTable? masterTable;
                     try
                     {
+                        if (!user.NotionUserSettings.MasterDatabaseExists)
+                        {
+                            try
+                            {
+                                var masterDbName = user.NotionUserSettings.MasterDatabaseName ?? "Master Database";
+                                var masterDb = await notionService.GetDatabaseByNameAsync(masterDbName);
+                                user.NotionUserSettings.MasterDatabaseExists = true;
+                                await userDbContext.SaveChangesAsync(cancellationToken);
+                                _logger.LogDebug("Found Master Database for new user, will update in next cycle");
+                                return;
+                            }
+                            catch (NotionDatabaseNotFoundException e)
+                            {
+                                // Ignored
+                            }
+
+                            _logger.LogError("Master database does not exist for User {Id}, creating now", user.Id);
+                            await notionService.CreateMasterTable();
+                            user.NotionUserSettings.MasterDatabaseExists = true;
+                            user.NotionUserSettings.MasterDatabaseFetchingFailedCount = 0;
+                            user.NotionUserSettings.MasterDatabaseCreationTime = DateTime.Now;
+                            await userDbContext.SaveChangesAsync(cancellationToken);
+                            return;
+                        }
+
                         await Policy
                             .Handle<NotionDatabaseNotFoundException>()
-                            .WaitAndRetryAsync(10, retryAttempt => TimeSpan.FromSeconds(Math.Pow(retryAttempt, 1.45)),
+                            .WaitAndRetryAsync(10,
+                                retryAttempt => TimeSpan.FromSeconds(Math.Pow(retryAttempt, 1.45)),
                                 (exception, span, retryCount, context) =>
-                                    _logger.LogDebug("Retry attempt {Count} failed with exception {Message}, trying after {Span} seconds",
+                                    _logger.LogDebug(
+                                        "Retry attempt {Count} failed with exception {Message}, trying after {Span} seconds",
                                         retryCount, exception.Message, span.Seconds))
                             .ExecuteAsync(async () =>
                             {
-                                var masterDb = await notionService.GetDatabaseByNameAsync("Master Database");
+                                var masterDbName = user.NotionUserSettings.MasterDatabaseName ?? "Master Database";
+                                var masterDb = await notionService.GetDatabaseByNameAsync(masterDbName);
+                                _logger.LogInformation("Master Database found for User {Id}", user.Id);
                                 var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
                                 masterTable = await MasterTable.Create(masterDb, masterDbPages);
                                 await UpdateMasterDatabaseForUser(notionService, cryptocurrencyService, masterTable);
@@ -67,13 +99,23 @@ public class NotionAutoUpdateService : BackgroundService
                                     await UpdateForexDataForMasterDatabase(notionService, forexService, masterTable,
                                         LastForexUpdate);
                             });
-                        _logger.LogInformation("Master Database found for User {Id}", user.Id);
                     }
                     catch (NotionDatabaseNotFoundException e)
                     {
-                        _logger.LogError(e, "Master database not found for User {Id}, creating", user.Id);
-                        await notionService.CreateMasterTable();
-                        return;
+                        if (!user.NotionUserSettings.MasterDatabaseExists ||
+                            user.NotionUserSettings.MasterDatabaseFetchingFailedCount >= 3)
+                        {
+                            _logger.LogError(e, "Master database not found for User {Id}, creating", user.Id);
+                            await notionService.CreateMasterTable();
+                            user.NotionUserSettings.MasterDatabaseExists = true;
+                            user.NotionUserSettings.MasterDatabaseFetchingFailedCount = 0;
+                            user.NotionUserSettings.MasterDatabaseCreationTime = DateTime.Now;
+                            await userDbContext.SaveChangesAsync(cancellationToken);
+                            return;
+                        }
+
+                        user.NotionUserSettings.MasterDatabaseFetchingFailedCount += 1;
+                        await userDbContext.SaveChangesAsync(cancellationToken);
                     }
                 }
                 catch (Exception e)

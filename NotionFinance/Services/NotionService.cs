@@ -97,12 +97,19 @@ public class NotionService : INotionService
         await GetPagesAsync();
         foreach (var page in _pages)
         {
-            var namePropertyValue = page.Properties["title"];
-            var n = namePropertyValue == null
-                ? null
-                : (namePropertyValue as TitlePropertyValue)!.Title[0].PlainText;
-            if (n == null) throw new NotionPageNotFoundException();
-            if (n.Contains(name)) return page;
+            try
+            {
+                var namePropertyValue = page.Properties["title"];
+                var n = namePropertyValue == null
+                    ? null
+                    : (namePropertyValue as TitlePropertyValue)!.Title[0].PlainText;
+                if (n == null) throw new NotionPageNotFoundException();
+                if (n.Contains(name)) return page;
+            }
+            catch (KeyNotFoundException e)
+            {
+                // Ignored
+            }
         }
 
         throw new NotionPageNotFoundException();

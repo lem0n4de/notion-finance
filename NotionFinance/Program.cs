@@ -53,8 +53,8 @@ builder.Services.AddScoped<INotionClient>(provider =>
     if (emailClaim == null) throw new Exception(Messages.InvalidUser);
     var userDbContext = provider.GetService<UserDbContext>();
     var user = userDbContext!.Users.First(x => x.Email == emailClaim.Value);
-    if (user.NotionAccessToken != null)
-        return NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken});
+    if (user.NotionUserSettings.NotionAccessToken != null)
+        return NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionUserSettings.NotionAccessToken});
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();

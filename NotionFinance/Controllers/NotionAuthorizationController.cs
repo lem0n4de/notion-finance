@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notion.Client;
 using NotionFinance.Data;
+using NotionFinance.Models;
 
 namespace NotionFinance.Controllers;
 
@@ -80,9 +81,10 @@ public class NotionAuthorizationController : Controller
                 if (owner_user == null || owner_user_id == null)
                     return BadRequest(Messages.NotionError);
 
-                user.NotionId = owner_user_id;
-                user.NotionAccessToken = json["access_token"]!.ToString();
-                user.AuthorizedWorkspaceId = json["workspace_id"]!.ToString();
+                if (user.NotionUserSettings == null) user.NotionUserSettings = new NotionUserSettings();
+                user.NotionUserSettings.NotionId = owner_user_id;
+                user.NotionUserSettings.NotionAccessToken = json["access_token"]!.ToString();
+                user.NotionUserSettings.AuthorizedWorkspaceId = json["workspace_id"]!.ToString();
                 await _context.SaveChangesAsync();
             }
 
