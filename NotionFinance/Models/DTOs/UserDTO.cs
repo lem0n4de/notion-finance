@@ -9,6 +9,7 @@ public class UserDTO
     public List<Account> Accounts { get; set; }
     public Membership Membership { get; set; }
     public bool IsAdmin { get; set; }
+    public string? MasterDatabaseName { get; set; }
 
     public static UserDTO FromUser(User user)
     {
@@ -20,7 +21,8 @@ public class UserDTO
             LastName = user.LastName,
             Accounts = user.Accounts,
             Membership = user.Membership,
-            IsAdmin = user.IsAdmin
+            IsAdmin = user.IsAdmin,
+            MasterDatabaseName = user.NotionUserSettings?.MasterDatabaseName ?? "Master Database"
         };
     }
 }
