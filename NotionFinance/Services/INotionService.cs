@@ -19,5 +19,5 @@ public interface INotionService
     public Task UpdateDatabasesAndPagesAsync();
 
     public Task<MasterTable> GetMasterTable();
-    public Task<MasterTable> CreateMasterTable();
+    public Task<Database> CreateMasterTable();
 }

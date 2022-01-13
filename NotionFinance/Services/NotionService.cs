@@ -55,8 +55,7 @@ public class NotionService : INotionService
 
     public async Task<Database> GetDatabaseByIdAsync(string databaseId)
     {
-        await GetDatabasesAsync();
-        var database = _databases.Find(x => x.Id == databaseId);
+        var database = await _client.Databases.RetrieveAsync(databaseId);
         if (database == null) throw new NotionDatabaseNotFoundException();
         return database;
     }
@@ -153,7 +152,7 @@ public class NotionService : INotionService
             });
     }
 
-    public async Task<MasterTable> CreateMasterTable()
+    public async Task<Database> CreateMasterTable()
     {
         try
         {
@@ -192,12 +191,12 @@ public class NotionService : INotionService
                 }
             });
             _databases.Add(database);
+            return database;
         }
         catch (Exception e)
         {
             Log.Information(e, "Some error on CreateMasterTable");
+            throw new NotionDatabaseNotFoundException(e.Message);
         }
-
-        return await GetMasterTable();
     }
 }

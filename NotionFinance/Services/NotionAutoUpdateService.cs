@@ -58,12 +58,25 @@ public class NotionAutoUpdateService : BackgroundService
                         {
                             try
                             {
-                                var masterDbName = user.NotionUserSettings.MasterDatabaseName ?? "Master Database";
-                                var masterDb = await notionService.GetDatabaseByNameAsync(masterDbName);
-                                user.NotionUserSettings.MasterDatabaseExists = true;
-                                await userDbContext.SaveChangesAsync(cancellationToken);
-                                _logger.LogDebug("Found Master Database for new user, will update in next cycle");
-                                return;
+                                if (user.NotionUserSettings.MasterDatabaseId == null)
+                                {
+                                    var masterDbName = user.NotionUserSettings.MasterDatabaseName ?? "Master Database";
+                                    var masterDb = await notionService.GetDatabaseByNameAsync(masterDbName);
+                                    user.NotionUserSettings.MasterDatabaseExists = true;
+                                    await userDbContext.SaveChangesAsync(cancellationToken);
+                                    _logger.LogDebug("Found Master Database for new user, will update in next cycle");
+                                    return;
+                                }
+                                else
+                                {
+                                    var masterDb =
+                                        await notionService.GetDatabaseByIdAsync(user.NotionUserSettings
+                                            .MasterDatabaseId);
+                                    user.NotionUserSettings.MasterDatabaseExists = true;
+                                    await userDbContext.SaveChangesAsync(cancellationToken);
+                                    _logger.LogDebug("Found Master Database for new user, will update in next cycle");
+                                    return;
+                                }
                             }
                             catch (NotionDatabaseNotFoundException e)
                             {
@@ -71,8 +84,9 @@ public class NotionAutoUpdateService : BackgroundService
                             }
 
                             _logger.LogError("Master database does not exist for User {Id}, creating now", user.Id);
-                            await notionService.CreateMasterTable();
+                            var db = await notionService.CreateMasterTable();
                             user.NotionUserSettings.MasterDatabaseExists = true;
+                            user.NotionUserSettings.MasterDatabaseId = db.Id;
                             user.NotionUserSettings.MasterDatabaseFetchingFailedCount = 0;
                             user.NotionUserSettings.MasterDatabaseCreationTime = DateTime.Now;
                             await userDbContext.SaveChangesAsync(cancellationToken);
@@ -89,8 +103,8 @@ public class NotionAutoUpdateService : BackgroundService
                                         retryCount, exception.Message, span.Seconds))
                             .ExecuteAsync(async () =>
                             {
-                                var masterDbName = user.NotionUserSettings.MasterDatabaseName ?? "Master Database";
-                                var masterDb = await notionService.GetDatabaseByNameAsync(masterDbName);
+                                var masterDb =
+                                    await notionService.GetDatabaseByIdAsync(user.NotionUserSettings.MasterDatabaseId!);
                                 _logger.LogInformation("Master Database found for User {Id}", user.Id);
                                 var masterDbPages = await notionService.GetPagesByDatabaseAsync(masterDb.Id);
                                 masterTable = await MasterTable.Create(masterDb, masterDbPages);

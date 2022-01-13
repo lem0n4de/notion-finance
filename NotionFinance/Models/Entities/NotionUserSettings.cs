@@ -13,4 +13,5 @@ public class NotionUserSettings
     public string? HomePageName { get; set; }
     public DateTime MasterDatabaseCreationTime { get; set; }
     public int MasterDatabaseFetchingFailedCount { get; set; } = 0;
+    public string? MasterDatabaseId { get; set; }
 }
