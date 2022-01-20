@@ -3,14 +3,14 @@
 version: '3.4'
 
 services:
-  notionfinance:
+  notion-finance:
     image: lem0n4de/notion-finance:latest
     build:
       context: .
       dockerfile: NotionFinance/Dockerfile
     ports:
-      - 80:7047
-      - 443:7048
+      - "443:7048"
+      - "7047:7047"
     environment:
       - Notion__CallbackBaseUrl=https://localhost
       - Notion__ClientId=c1d26f89-3a98-44cb-9735-fa431b8647b7
@@ -19,3 +19,11 @@ services:
       - ASPNETCORE_URLS=http://+:7047;https://+:7048
     volumes:
       - ~/.vsdbg:/remote_debugger:rw
+  notion-finance-frontend:
+    image: lem0n4de/notion-finance-frontend:latest
+    build:
+      context: notion-finance-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    command: nginx -c nginx.conf -g "daemon off;"

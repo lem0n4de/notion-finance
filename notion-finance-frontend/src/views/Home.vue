@@ -6,13 +6,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { Component, Vue } from "vue-property-decorator";
 import HelloWorld from "@/components/HelloWorld.vue"; // @ is an alias to /src
 
-export default defineComponent({
-  name: "Home",
+@Component({
   components: {
     HelloWorld,
   },
-});
+})
+export default class Home extends Vue {}
 </script>
