@@ -24,8 +24,13 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.UseKestrel(serverOptions => {
-    serverOptions.Listen(IPAddress.Any, 7048, o => { o.UseHttps("/https/https.pfx", "yunus9854");});
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policyBuilder => policyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod().Build());
+});
+builder.WebHost.UseKestrel(serverOptions =>
+{
+    serverOptions.Listen(IPAddress.Any, 7048, o => { o.UseHttps("/https/https.pfx", "yunus9854"); });
     serverOptions.Listen(IPAddress.Any, 7047);
 });
 
@@ -39,7 +44,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<UserDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHostedService<NotionAutoUpdateService>();
 builder.Services.AddScoped<INotionClient>(provider =>
@@ -113,6 +118,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseHttpLogging();
+app.UseCors();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

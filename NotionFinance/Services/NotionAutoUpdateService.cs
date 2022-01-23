@@ -32,6 +32,7 @@ public class NotionAutoUpdateService : BackgroundService
         var forexService = scope.ServiceProvider.GetRequiredService<IForexService>();
         var forexServices = scope.ServiceProvider.GetServices<IForexService>();
         var userDbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
+        await userDbContext.Database.MigrateAsync(stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             var users = await userDbContext.Users

@@ -7,7 +7,7 @@ RUN yarn install
 COPY . .
 # build stage
 FROM develop-stage as build-stage
-RUN yarn build --fix
+RUN yarn build --fix --mode development
 # production stage
 FROM nginx:mainline-alpine as production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
