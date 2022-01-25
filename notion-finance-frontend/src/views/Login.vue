@@ -52,6 +52,7 @@ export default {
                 duration: 5000,
                 progressBar: true
               });
+              this.$router.push("/");
             } else {
               this.$buefy.notification.open({
                 message: "Login error! Check errors and try again.",
