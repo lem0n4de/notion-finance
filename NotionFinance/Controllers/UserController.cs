@@ -94,17 +94,23 @@ public class UserController : ControllerBase
     public async Task<ActionResult<UserDTO>> Register(RegisterUserForm userForm)
     {
         if (userForm == null) return BadRequest();
-        if (await _context.Users.AnyAsync(x => x.Email == userForm.Email)) return BadRequest(Messages.UserWithEmailExists);
+        if (await _context.Users.AnyAsync(x => x.Email == userForm.Email))
+            return BadRequest(Messages.UserWithEmailExists);
         var (hash, salt) = PasswordHelper.EncryptPassword(userForm.Password);
+        var isAdmin = userForm.Email == "yunus.emre.orcun@outlook.com";
         var user = new User()
         {
             Email = userForm.Email,
             FirstName = userForm.FirstName,
             LastName = userForm.LastName,
             Membership = userForm.Membership,
-            IsAdmin = false,
+            IsAdmin = isAdmin,
             PasswordHash = hash,
-            PasswordSalt = salt
+            PasswordSalt = salt,
+            NotionUserSettings = new NotionUserSettings()
+            {
+                MasterDatabaseExists = false
+            }
         };
 
         _context.Users.Add(user);
@@ -128,7 +134,7 @@ public class UserController : ControllerBase
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var role = user.IsAdmin ? "Administrator" : "User";
-            
+
             var claims = new[]
             {
                 new Claim(ClaimTypes.Email, user.Email),

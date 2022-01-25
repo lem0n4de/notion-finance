@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notion.Client;
 using NotionFinance.Data;
+using NotionFinance.Models;
 
 namespace NotionFinance.Controllers;
 
@@ -40,7 +41,7 @@ public class NotionAuthorizationController : Controller
         // state is inside double brackets because notion thinks its a number and not a string.
         var url =
             $"{NotionOAuthUrl}?owner=user&response_type=code&client_id={_configuration["Notion:ClientId"]}" +
-            $"&redirect_uri=https://localhost:7047/api/notion/callback&state=\"{user.Id}\"";
+            $"&redirect_uri={_configuration["Notion:CallbackBaseUrl"]}/api/notion/callback&state=\"{user.Id}\"";
         return url;
     }
 
@@ -58,7 +59,7 @@ public class NotionAuthorizationController : Controller
                 Encoding.UTF8.GetBytes($"{_configuration["Notion:ClientId"]}:{_configuration["Notion:ClientSecret"]}"));
         var serializedString = JsonSerializer.Serialize(new
         {
-            grant_type = "authorization_code", code = code, redirect_uri = "https://localhost:7047/api/notion/callback"
+            grant_type = "authorization_code", code = code, redirect_uri = $"{_configuration["Notion:CallbackBaseUrl"]}/api/notion/callback"
         });
         req.Headers.TryAddWithoutValidation("Authorization", $"Basic {base64Secret}");
         req.Headers.TryAddWithoutValidation("Notion-Version", "2021-08-16");
@@ -80,9 +81,10 @@ public class NotionAuthorizationController : Controller
                 if (owner_user == null || owner_user_id == null)
                     return BadRequest(Messages.NotionError);
 
-                user.NotionId = owner_user_id;
-                user.NotionAccessToken = json["access_token"]!.ToString();
-                user.AuthorizedWorkspaceId = json["workspace_id"]!.ToString();
+                if (user.NotionUserSettings == null) user.NotionUserSettings = new NotionUserSettings();
+                user.NotionUserSettings.NotionId = owner_user_id;
+                user.NotionUserSettings.NotionAccessToken = json["access_token"]!.ToString();
+                user.NotionUserSettings.AuthorizedWorkspaceId = json["workspace_id"]!.ToString();
                 await _context.SaveChangesAsync();
             }
 

@@ -1,9 +1,11 @@
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Notion.Client;
@@ -11,14 +13,38 @@ using NotionFinance;
 using NotionFinance.Data;
 using NotionFinance.Exceptions;
 using NotionFinance.Services;
+using NotionFinance.Services.Forex;
+using Serilog;
+using Serilog.Events;
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Debug()
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policyBuilder => policyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod().Build());
+});
+builder.WebHost.UseKestrel(serverOptions =>
+{
+    serverOptions.Listen(IPAddress.Any, 7048, o => { o.UseHttps("/https/https.pfx", "yunus9854"); });
+    serverOptions.Listen(IPAddress.Any, 7047);
+});
+
+builder.Host.UseSerilog((context, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Debug());
 
 // Add services to the container.
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<UserDbContext>(options =>
-    options.UseSqlite($"Data Source={builder.Configuration["Sqlite:Users"]}"));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHostedService<NotionAutoUpdateService>();
 builder.Services.AddScoped<INotionClient>(provider =>
@@ -26,18 +52,25 @@ builder.Services.AddScoped<INotionClient>(provider =>
     var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
     if (httpContextAccessor == null) // Not in a request
     {
-        
     }
 
     var emailClaim = httpContextAccessor!.HttpContext!.User.FindFirst(ClaimTypes.Email);
     if (emailClaim == null) throw new Exception(Messages.InvalidUser);
     var userDbContext = provider.GetService<UserDbContext>();
     var user = userDbContext!.Users.First(x => x.Email == emailClaim.Value);
-    if (user.NotionAccessToken != null)
-        return NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionAccessToken});
+    if (user.NotionUserSettings.NotionAccessToken != null)
+        return NotionClientFactory.Create(new ClientOptions() {AuthToken = user.NotionUserSettings.NotionAccessToken});
     throw new NotionAccountNotConnectedException();
 });
 builder.Services.AddScoped<INotionService, NotionService>();
+builder.Services.AddTransient<IForexApiService, AwesomeApiBrazilService>();
+builder.Services.AddTransient<IForexApiService, AlphaVantageService>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new AlphaVantageService(configuration["AlphaVantage:APIKey"]);
+});
+builder.Services.AddTransient<IForexApiService, ExchangeRateService>();
+builder.Services.AddTransient<IForexService, ForexService>();
 builder.Services.AddTransient<ICryptocurrencyService, CoinGeckoService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
@@ -85,13 +118,13 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseHttpLogging();
+app.UseCors();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
