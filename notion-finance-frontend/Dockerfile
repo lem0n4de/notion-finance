@@ -12,5 +12,7 @@ RUN yarn build --fix --mode development
 FROM nginx:mainline-alpine as production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf nginx.conf
+COPY nginx.conf /temp/prod.conf
+RUN envsubst /app < /temp/prod.conf > /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-c", "nginx.conf"]
